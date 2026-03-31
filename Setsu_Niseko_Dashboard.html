@@ -1,0 +1,984 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Setsu Niseko — Income & Expense Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:       #0a0f1a;
+    --surface:  #111827;
+    --card:     #151e2e;
+    --border:   #1e2d42;
+    --accent:   #3b82f6;
+    --green:    #10d87a;
+    --red:      #f43f5e;
+    --amber:    #f59e0b;
+    --sky:      #38bdf8;
+    --purple:   #a78bfa;
+    --orange:   #fb923c;
+    --text:     #e2e8f0;
+    --muted:    #64748b;
+    --serif:    'DM Serif Display', serif;
+    --mono:     'DM Mono', monospace;
+    --sans:     'Outfit', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* NOISE OVERLAY */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none; z-index: 999; opacity: 0.35;
+  }
+
+  /* HEADER */
+  header {
+    position: relative;
+    padding: 48px 48px 32px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: flex-end; justify-content: space-between;
+    gap: 24px; flex-wrap: wrap;
+    background: linear-gradient(135deg, #0d1829 0%, #0a0f1a 60%);
+  }
+  header::after {
+    content: '';
+    position: absolute; bottom: -1px; left: 48px; right: 48px; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  }
+  .logo-group { display: flex; flex-direction: column; gap: 4px; }
+  .logo-label {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.15em;
+    color: var(--accent); text-transform: uppercase;
+  }
+  h1 {
+    font-family: var(--serif); font-size: clamp(28px, 4vw, 48px);
+    line-height: 1; color: #fff;
+    letter-spacing: -0.02em;
+  }
+  .header-meta {
+    display: flex; gap: 12px; flex-wrap: wrap;
+  }
+  .meta-pill {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 100px; padding: 6px 16px;
+    font-size: 12px; font-weight: 500; color: var(--muted);
+    font-family: var(--mono);
+  }
+
+  /* MAIN LAYOUT */
+  main {
+    padding: 32px 48px 64px;
+    display: flex; flex-direction: column; gap: 28px;
+    max-width: 1600px; margin: 0 auto;
+  }
+
+  /* FILTERS ROW */
+  .filters-row {
+    display: flex; gap: 12px; flex-wrap: wrap; align-items: center;
+  }
+  .filter-label {
+    font-size: 11px; color: var(--muted); font-family: var(--mono);
+    letter-spacing: 0.1em; text-transform: uppercase; margin-right: 4px;
+  }
+  .btn-group { display: flex; gap: 4px; }
+  .btn {
+    background: var(--surface); border: 1px solid var(--border);
+    color: var(--muted); border-radius: 8px; padding: 7px 14px;
+    font-size: 12px; font-family: var(--mono); cursor: pointer;
+    transition: all 0.18s;
+  }
+  .btn:hover { border-color: var(--accent); color: var(--text); }
+  .btn.active {
+    background: var(--accent); border-color: var(--accent);
+    color: #fff; font-weight: 600;
+  }
+  .separator { width: 1px; height: 28px; background: var(--border); margin: 0 4px; }
+
+  /* KPI ROW */
+  .kpi-row {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px;
+  }
+  .kpi-card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 16px; padding: 20px 22px;
+    position: relative; overflow: hidden;
+    transition: transform 0.2s, border-color 0.2s;
+  }
+  .kpi-card:hover { transform: translateY(-2px); border-color: #2a3a54; }
+  .kpi-card::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: var(--accent-color, var(--accent));
+  }
+  .kpi-room { font-size: 10px; font-family: var(--mono); color: var(--muted); letter-spacing: 0.1em; margin-bottom: 6px; }
+  .kpi-label { font-size: 11px; color: var(--muted); margin-bottom: 8px; }
+  .kpi-value {
+    font-family: var(--mono); font-size: 22px; font-weight: 500;
+    color: #fff; letter-spacing: -0.02em;
+  }
+  .kpi-value.neg { color: var(--red); }
+  .kpi-value.pos { color: var(--green); }
+  .kpi-delta {
+    margin-top: 6px; font-size: 11px; font-family: var(--mono);
+    display: flex; align-items: center; gap: 4px;
+  }
+  .kpi-delta.up { color: var(--green); }
+  .kpi-delta.dn { color: var(--red); }
+
+  /* CHART GRID */
+  .chart-grid {
+    display: grid; gap: 20px;
+  }
+  .chart-grid-2 { grid-template-columns: repeat(2, 1fr); }
+  .chart-grid-3 { grid-template-columns: repeat(3, 1fr); }
+  @media (max-width: 1100px) { .chart-grid-2, .chart-grid-3 { grid-template-columns: 1fr; } }
+
+  .chart-card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 20px; padding: 24px 28px;
+    display: flex; flex-direction: column; gap: 16px;
+  }
+  .chart-card.wide { grid-column: 1 / -1; }
+  .chart-header {
+    display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;
+  }
+  .chart-title {
+    font-size: 14px; font-weight: 600; color: var(--text); letter-spacing: -0.01em;
+  }
+  .chart-sub { font-size: 11px; color: var(--muted); font-family: var(--mono); }
+  .chart-wrap { position: relative; height: 260px; }
+  .chart-wrap.tall { height: 320px; }
+  .chart-wrap.short { height: 200px; }
+
+  /* LEGEND */
+  .legend {
+    display: flex; gap: 16px; flex-wrap: wrap;
+  }
+  .legend-item {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 11px; color: var(--muted); font-family: var(--mono);
+  }
+  .legend-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+  /* TABLE */
+  .table-card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 20px; overflow: hidden;
+  }
+  .table-header-row {
+    padding: 20px 24px 12px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  table { width: 100%; border-collapse: collapse; }
+  thead tr { background: rgba(30,45,66,0.5); }
+  th {
+    padding: 10px 16px; font-size: 10px; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--muted);
+    font-family: var(--mono); font-weight: 500; text-align: right;
+  }
+  th:first-child { text-align: left; }
+  td {
+    padding: 10px 16px; font-size: 12px; font-family: var(--mono);
+    border-bottom: 1px solid rgba(30,45,66,0.6); text-align: right;
+  }
+  td:first-child { text-align: left; color: var(--text); font-weight: 500; }
+  tr:last-child td { border-bottom: none; }
+  .td-pos { color: var(--green); }
+  .td-neg { color: var(--red); }
+  .td-neu { color: var(--muted); }
+  tr.total-row { background: rgba(59,130,246,0.06); }
+  tr.total-row td { font-weight: 600; color: #fff; border-top: 1px solid var(--border); }
+
+  /* ROOM BADGE */
+  .room-badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 2px 10px; border-radius: 100px;
+    font-size: 10px; font-family: var(--mono); font-weight: 500;
+    letter-spacing: 0.05em;
+  }
+
+  /* SPARKLINE row */
+  .sparkline-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px;
+  }
+  .spark-card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 16px; padding: 18px 20px;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .spark-top { display: flex; justify-content: space-between; align-items: flex-start; }
+  .spark-room { font-size: 10px; font-family: var(--mono); color: var(--muted); letter-spacing: 0.1em; }
+  .spark-income { font-family: var(--mono); font-size: 20px; font-weight: 500; color: #fff; }
+  .spark-wrap { height: 56px; position: relative; }
+
+  /* SECTION LABEL */
+  .section-label {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.15em;
+    color: var(--accent); text-transform: uppercase;
+    padding: 0 4px; display: flex; align-items: center; gap: 8px;
+  }
+  .section-label::after {
+    content: ''; flex: 1; height: 1px; background: var(--border);
+  }
+
+  /* EXPENSE BREAKDOWN */
+  .exp-bar-row {
+    display: flex; align-items: center; gap: 10px; font-size: 11px;
+  }
+  .exp-bar-label { width: 180px; flex-shrink: 0; color: var(--text); font-family: var(--mono); }
+  .exp-bar-track {
+    flex: 1; height: 8px; background: rgba(255,255,255,0.05); border-radius: 100px; overflow: hidden;
+  }
+  .exp-bar-fill {
+    height: 100%; border-radius: 100px;
+    background: linear-gradient(90deg, var(--fill-start), var(--fill-end));
+    transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .exp-bar-val { width: 90px; text-align: right; flex-shrink: 0; font-family: var(--mono); color: var(--muted); }
+
+  /* YEAR COMPARISON TABLE */
+  .yr-table th, .yr-table td { padding: 9px 14px; }
+
+  /* FOOTER */
+  footer {
+    text-align: center; padding: 24px;
+    font-size: 11px; color: var(--muted); font-family: var(--mono);
+    border-top: 1px solid var(--border);
+  }
+
+  /* Animation */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .chart-card, .kpi-card, .table-card, .spark-card {
+    animation: fadeUp 0.5s ease both;
+  }
+  .kpi-card:nth-child(1) { animation-delay: 0.05s; }
+  .kpi-card:nth-child(2) { animation-delay: 0.1s; }
+  .kpi-card:nth-child(3) { animation-delay: 0.15s; }
+  .kpi-card:nth-child(4) { animation-delay: 0.2s; }
+  .kpi-card:nth-child(5) { animation-delay: 0.25s; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo-group">
+    <span class="logo-label">Property Income Report</span>
+    <h1>Setsu Niseko<br><em>Dashboard</em></h1>
+  </div>
+  <div class="header-meta">
+    <span class="meta-pill">4 Units</span>
+    <span class="meta-pill">Y2023 – Y2026</span>
+    <span class="meta-pill">JPY / THB</span>
+  </div>
+</header>
+
+<main>
+
+  <!-- FILTERS -->
+  <div class="filters-row">
+    <span class="filter-label">ปี</span>
+    <div class="btn-group" id="yr-btns">
+      <button class="btn" onclick="setYear('2023')">2023</button>
+      <button class="btn" onclick="setYear('2024')">2024</button>
+      <button class="btn active" onclick="setYear('2025')">2025</button>
+      <button class="btn" onclick="setYear('2026')">2026</button>
+      <button class="btn" onclick="setYear('all')">ทุกปี</button>
+    </div>
+    <div class="separator"></div>
+    <span class="filter-label">ห้อง</span>
+    <div class="btn-group" id="room-btns">
+      <button class="btn active" onclick="setRoom('all')">ทั้งหมด</button>
+      <button class="btn" onclick="setRoom('838')">838 A3</button>
+      <button class="btn" onclick="setRoom('306')">306 H1</button>
+      <button class="btn" onclick="setRoom('353')">353 A2</button>
+      <button class="btn" onclick="setRoom('355')">355 A2</button>
+    </div>
+  </div>
+
+  <!-- KPI SECTION LABEL -->
+  <div class="section-label">สรุปภาพรวม</div>
+
+  <!-- KPI CARDS -->
+  <div class="kpi-row" id="kpi-row"></div>
+
+  <!-- SPARKLINES PER ROOM -->
+  <div class="section-label">รายได้รายห้อง (รายเดือน)</div>
+  <div class="sparkline-grid" id="spark-grid"></div>
+
+  <!-- INCOME vs EXPENSE BAR CHART (Monthly) -->
+  <div class="section-label">รายได้ vs ค่าใช้จ่ายรายเดือน</div>
+  <div class="chart-card">
+    <div class="chart-header">
+      <div>
+        <div class="chart-title">Income vs Expenses — รายเดือน</div>
+        <div class="chart-sub" id="bar-sub">Y2025 · ทุกห้อง</div>
+      </div>
+      <div class="legend">
+        <div class="legend-item"><span class="legend-dot" style="background:#3b82f6"></span>Income</div>
+        <div class="legend-item"><span class="legend-dot" style="background:#f43f5e"></span>Expenses</div>
+        <div class="legend-item"><span class="legend-dot" style="background:#10d87a"></span>Net</div>
+      </div>
+    </div>
+    <div class="chart-wrap tall"><canvas id="barChart"></canvas></div>
+  </div>
+
+  <!-- 2-col: Year comparison + Expense breakdown -->
+  <div class="chart-grid chart-grid-2">
+    <div class="chart-card">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title">เปรียบเทียบรายปี</div>
+          <div class="chart-sub">Income / Expenses / Net</div>
+        </div>
+      </div>
+      <div class="chart-wrap"><canvas id="yearChart"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title">สัดส่วนค่าใช้จ่าย</div>
+          <div class="chart-sub" id="pie-sub">Y2025 · ทุกห้อง</div>
+        </div>
+      </div>
+      <div class="chart-wrap"><canvas id="pieChart"></canvas></div>
+    </div>
+  </div>
+
+  <!-- Expense bar breakdown -->
+  <div class="section-label">รายละเอียดค่าใช้จ่าย</div>
+  <div class="chart-card">
+    <div class="chart-header">
+      <div class="chart-title">ค่าใช้จ่ายแยกตามประเภท</div>
+      <div class="chart-sub" id="expbar-sub">Y2025 · ทุกห้อง</div>
+    </div>
+    <div id="exp-bars" style="display:flex;flex-direction:column;gap:10px;padding:4px 0;"></div>
+  </div>
+
+  <!-- YEAR TABLE -->
+  <div class="section-label">ตารางสรุปรายปี</div>
+  <div class="table-card">
+    <div class="table-header-row">
+      <span class="chart-title">Annual Summary by Room</span>
+    </div>
+    <div style="overflow-x:auto;">
+      <table class="yr-table" id="yr-table"></table>
+    </div>
+  </div>
+
+  <!-- MONTHLY TABLE -->
+  <div class="section-label" id="monthly-label">รายละเอียดรายเดือน — Y2025</div>
+  <div class="table-card">
+    <div style="overflow-x:auto;">
+      <table id="monthly-table"></table>
+    </div>
+  </div>
+
+</main>
+
+<footer>Setsu Niseko · Income & Expense Dashboard · Data: Y2023–Y2026 · Generated 2026</footer>
+
+<script>
+// ============================================================
+// DATA
+// ============================================================
+const ROOMS = ['838 A3', '306 H1', '353 A2', '355 A2'];
+const ROOM_COLORS = {
+  '838 A3': { accent:'#3b82f6', accentAlpha:'rgba(59,130,246,0.15)', badge:'rgba(59,130,246,0.15)', badgeText:'#60a5fa' },
+  '306 H1': { accent:'#a78bfa', accentAlpha:'rgba(167,139,250,0.15)', badge:'rgba(167,139,250,0.15)', badgeText:'#c4b5fd' },
+  '353 A2': { accent:'#10d87a', accentAlpha:'rgba(16,216,122,0.15)', badge:'rgba(16,216,122,0.15)', badgeText:'#34d399' },
+  '355 A2': { accent:'#fb923c', accentAlpha:'rgba(251,146,60,0.15)', badge:'rgba(251,146,60,0.15)', badgeText:'#fdba74' },
+};
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const EXP_CATS = ['Management Fee','Repair Reserve Fund','Utilities','GST','Account Mgmt Fee','Housekeeping','Insurance','Repair & Maintenance','Membership','Equipment'];
+
+// Yearly totals per room
+const ANNUAL = {
+  '838 A3': {
+    '2023': { income: 13337927, expenses: 2788923, nights: 10 },
+    '2024': { income: 43736202, expenses: 9160083, nights: 53 },
+    '2025': { income: 36280653, expenses: 9053636, nights: 50 },
+    '2026': { income: 21983648, expenses: 885728,  nights: 18 },
+  },
+  '306 H1': {
+    '2023': { income: 1472000,  expenses: 298738,  nights: 7  },
+    '2024': { income: 10631517, expenses: 2002322, nights: 153 },
+    '2025': { income: 13941662, expenses: 2112559, nights: 173 },
+    '2026': { income: 4270244,  expenses: 225026,  nights: 26  },
+  },
+  '353 A2': {
+    '2023': { income: 0,        expenses: 0,       nights: 0  },
+    '2024': { income: 0,        expenses: 0,       nights: 0  },
+    '2025': { income: 1225149,  expenses: 504433,  nights: 34  },
+    '2026': { income: 3453496,  expenses: 124987,  nights: 28  },
+  },
+  '355 A2': {
+    '2023': { income: 0,        expenses: 0,       nights: 0  },
+    '2024': { income: 0,        expenses: 0,       nights: 0  },
+    '2025': { income: 1890423,  expenses: 1157617, nights: 56  },
+    '2026': { income: 5685719,  expenses: 289156,  nights: 21  },
+  },
+};
+
+// Monthly data 2025 (#838 A3, #306 H1, #353 A2, #355 A2)
+const MONTHLY = {
+  '2025': {
+    '838 A3': {
+      income:   [8586878,18939670,5180793,354996,0,321358,0,1899296,0,997662,0,0],
+      expenses: [924590,953657,874548,805363,806738,552818,563376,938847,580363,617571,759280,676485],
+    },
+    '306 H1': {
+      income:   [4650616,2670102,1329650,243230,86754,143388,414535,618442,400021,466814,193777,2724333],
+      expenses: [187875,184759,176201,175161,183929,134786,143753,226510,162522,180200,200184,156679],
+    },
+    '353 A2': {
+      income:   [0,0,0,0,0,0,0,0,148123,104484,0,972542],
+      expenses: [0,0,0,0,0,0,0,0,167317,101792,122819,112505],
+    },
+    '355 A2': {
+      income:   [0,0,0,0,0,0,0,0,646508,79436,46011,1118468],
+      expenses: [0,0,0,0,0,0,0,0,413190,219992,265468,258967],
+    },
+  },
+  '2024': {
+    '838 A3': {
+      income:   [7313234,13648252,6916154,2961556,0,0,683984,584770,0,0,0,11628252],
+      expenses: [919965,1012876,952725,804676,630661,560988,590384,1270898,576379,560568,692260,587703],
+    },
+    '306 H1': {
+      income:   [1360523,2211782,1178681,254375,439964,285445,494946,756728,436624,417402,149482,2645565],
+      expenses: [153560,171830,178464,163588,129155,146537,147059,269114,159467,151751,186923,144874],
+    },
+    '353 A2': {
+      income:   [0,0,0,0,0,0,0,0,0,0,0,0],
+      expenses: [0,0,0,0,0,0,0,0,0,0,0,0],
+    },
+    '355 A2': {
+      income:   [0,0,0,0,0,0,0,0,0,0,0,0],
+      expenses: [0,0,0,0,0,0,0,0,0,0,0,0],
+    },
+  },
+  '2026': {
+    '838 A3': {
+      income:   [21983648,0,0,0,0,0,0,0,0,0,0,0],
+      expenses: [885728,0,0,0,0,0,0,0,0,0,0,0],
+    },
+    '306 H1': {
+      income:   [4270244,0,0,0,0,0,0,0,0,0,0,0],
+      expenses: [225026,0,0,0,0,0,0,0,0,0,0,0],
+    },
+    '353 A2': {
+      income:   [3453496,0,0,0,0,0,0,0,0,0,0,0],
+      expenses: [124987,0,0,0,0,0,0,0,0,0,0,0],
+    },
+    '355 A2': {
+      income:   [5685719,0,0,0,0,0,0,0,0,0,0,0],
+      expenses: [289156,0,0,0,0,0,0,0,0,0,0,0],
+    },
+  },
+  '2023': {
+    '838 A3': {
+      income:   [0,0,0,0,0,0,0,936049,581701,293170,566285,10960722],
+      expenses: [0,0,0,0,0,0,0,580955,565701,566285,770658,305324],
+    },
+    '306 H1': {
+      income:   [0,0,0,0,0,0,0,0,0,0,0,1472000],
+      expenses: [0,0,0,0,0,0,0,0,0,0,171490,127248],
+    },
+    '353 A2': { income: Array(12).fill(0), expenses: Array(12).fill(0) },
+    '355 A2': { income: Array(12).fill(0), expenses: Array(12).fill(0) },
+  },
+};
+
+// Expense breakdown Y2025 all rooms combined
+const EXP_BREAKDOWN = {
+  '2025': {
+    'Management Fee':      1118400+297300+740800+5499300,
+    'Repair Reserve Fund': 115200+29500+73500+566400,
+    'Utilities':           524753+81020+200005+1916072,
+    'GST':                 71800+14230+29020+232634,
+    'Account Mgmt Fee':    120000+50000+50000+120000,
+    'Housekeeping':        67316+8727+15491+251018,
+    'Insurance':           73095+14511+36140+359465,
+    'Repair & Maintenance':15320+8650+10900+68278,
+    'Membership':          4000+0+0+16000,
+    'Equipment':           2225+495+1761+24019,
+  },
+  '2024': {
+    'Management Fee':      5338800+1031700+0+0,
+    'Repair Reserve Fund': 566400+109440+0+0,
+    'Utilities':           1999410+478786+0+0,
+    'GST':                 247001+67097+0+0,
+    'Account Mgmt Fee':    28300+120000+0+0,
+    'Housekeeping':        296858+63715+0+0,
+    'Insurance':           685903+119123+0+0,
+    'Repair & Maintenance':35267+7850+0+0,
+    'Membership':          16000+4000+0+0,
+    'Equipment':           2744+611+0+0,
+  },
+  '2026': {
+    'Management Fee':      498400+101300+62100+154800,
+    'Repair Reserve Fund': 47200+9600+5900+14700,
+    'Utilities':           274384+71061+38615+90464,
+    'GST':                 30922+10375+4861+10046,
+    'Account Mgmt Fee':    10000+10000+10000+10000,
+    'Housekeeping':        0+21340+0+0,
+    'Insurance':           0+0+3511+8750,
+    'Repair & Maintenance':5400+1350+0+0,
+    'Membership':          0+0+0+0,
+    'Equipment':           19422+0+0+396,
+  },
+  '2023': {
+    'Management Fee': 2224500+235300,
+    'Repair Reserve Fund': 236000+24960,
+    'Utilities': 56316+14680,
+    'GST': 28402+3498,
+    'Account Mgmt Fee': 50000+20000,
+    'Housekeeping': 171255+0,
+    'Insurance': 0+0,
+    'Repair & Maintenance': 6150+0,
+    'Membership': 16000+300,
+    'Equipment': 300+0,
+  },
+};
+
+// ============================================================
+// STATE
+// ============================================================
+let activeYear = '2025';
+let activeRoom = 'all';
+let charts = {};
+
+function fmt(v) {
+  if (!v || isNaN(v)) return '—';
+  return new Intl.NumberFormat('th-TH', { notation: 'compact', maximumFractionDigits: 1 }).format(Math.abs(v));
+}
+function fmtFull(v) {
+  if (!v || isNaN(v)) return '—';
+  return new Intl.NumberFormat('th-TH').format(Math.round(v));
+}
+function delta(cur, prev) {
+  if (!prev || prev === 0) return null;
+  return ((cur - prev) / Math.abs(prev)) * 100;
+}
+
+// ============================================================
+// KPI CARDS
+// ============================================================
+function buildKPI() {
+  const container = document.getElementById('kpi-row');
+  container.innerHTML = '';
+
+  const years = activeYear === 'all' ? ['2023','2024','2025','2026'] : [activeYear];
+  const rooms = activeRoom === 'all' ? ROOMS : [ROOMS.find(r => r.includes(activeRoom))];
+
+  let totalInc = 0, totalExp = 0, totalNights = 0;
+  years.forEach(y => {
+    rooms.forEach(r => {
+      const d = ANNUAL[r][y];
+      if (d) { totalInc += d.income; totalExp += d.expenses; totalNights += d.nights; }
+    });
+  });
+  const totalNet = totalInc - totalExp;
+  const netPct = totalInc ? (totalNet/totalInc*100) : 0;
+  const perNight = totalNights ? totalInc/totalNights : 0;
+
+  // Compare to previous
+  const prevYear = activeYear === 'all' ? null : String(+activeYear - 1);
+  let prevInc = 0;
+  if (prevYear) rooms.forEach(r => { const d = ANNUAL[r][prevYear]; if (d) prevInc += d.income; });
+
+  const kpis = [
+    { label: 'Total Income', value: totalInc, cls: 'pos', icon: '↑', accentColor: '#3b82f6', d: prevYear ? delta(totalInc, prevInc) : null },
+    { label: 'Total Expenses', value: -totalExp, cls: 'neg', icon: '↓', accentColor: '#f43f5e', d: null },
+    { label: 'Net Income', value: totalNet, cls: totalNet >= 0 ? 'pos' : 'neg', accentColor: '#10d87a', d: null },
+    { label: 'Net Margin', value: netPct, cls: netPct >= 0 ? 'pos' : 'neg', isPercent: true, accentColor: '#a78bfa', d: null },
+    { label: 'Total Nights', value: totalNights, cls: '', accentColor: '#f59e0b', d: null, noFmt: true },
+    { label: 'Avg Per Night', value: perNight, cls: 'pos', accentColor: '#38bdf8', d: null },
+  ];
+
+  kpis.forEach(k => {
+    const c = document.createElement('div');
+    c.className = 'kpi-card';
+    c.style.setProperty('--accent-color', k.accentColor);
+    let valStr = k.isPercent ? `${k.value.toFixed(1)}%` : (k.noFmt ? k.value.toLocaleString() : `${fmt(k.value)}`);
+    let deltaHTML = '';
+    if (k.d !== null) {
+      const up = k.d >= 0;
+      deltaHTML = `<div class="kpi-delta ${up ? 'up' : 'dn'}">${up ? '▲' : '▼'} ${Math.abs(k.d).toFixed(1)}% vs ${prevYear}</div>`;
+    }
+    c.innerHTML = `
+      <div class="kpi-label">${k.label}</div>
+      <div class="kpi-value ${k.cls}">${valStr}</div>
+      ${deltaHTML}
+    `;
+    container.appendChild(c);
+  });
+}
+
+// ============================================================
+// SPARKLINES
+// ============================================================
+function buildSparklines() {
+  const grid = document.getElementById('spark-grid');
+  grid.innerHTML = '';
+  const year = activeYear === 'all' ? '2025' : activeYear;
+  const rooms = activeRoom === 'all' ? ROOMS : [ROOMS.find(r => r.includes(activeRoom))];
+
+  rooms.forEach(r => {
+    const d = MONTHLY[year] ? MONTHLY[year][r] : null;
+    if (!d) return;
+    const col = ROOM_COLORS[r];
+    const annualD = ANNUAL[r][year];
+    const netAnnual = annualD ? annualD.income - annualD.expenses : 0;
+
+    const card = document.createElement('div');
+    card.className = 'spark-card';
+
+    const canvasId = `spark-${r.replace(' ', '-')}`;
+    card.innerHTML = `
+      <div class="spark-top">
+        <div>
+          <div class="spark-room">ROOM ${r}</div>
+          <div class="spark-income">${fmt(annualD?.income || 0)}</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:10px;color:var(--muted);font-family:var(--mono);">Net</div>
+          <div style="font-family:var(--mono);font-size:14px;color:${netAnnual >= 0 ? '#10d87a' : '#f43f5e'};">${fmt(netAnnual)}</div>
+        </div>
+      </div>
+      <div class="spark-wrap"><canvas id="${canvasId}"></canvas></div>
+    `;
+    grid.appendChild(card);
+
+    setTimeout(() => {
+      const ctx = document.getElementById(canvasId)?.getContext('2d');
+      if (!ctx) return;
+      if (charts[canvasId]) charts[canvasId].destroy();
+      charts[canvasId] = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: MONTHS,
+          datasets: [{
+            data: d.income,
+            borderColor: col.accent,
+            borderWidth: 1.5,
+            tension: 0.4,
+            pointRadius: 0,
+            fill: true,
+            backgroundColor: (ctx2) => {
+              const g = ctx2.chart.ctx.createLinearGradient(0,0,0,56);
+              g.addColorStop(0, col.accentAlpha);
+              g.addColorStop(1, 'transparent');
+              return g;
+            }
+          }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false }, tooltip: { enabled: false } },
+          scales: { x: { display: false }, y: { display: false } },
+          animation: { duration: 800, easing: 'easeInOutQuart' }
+        }
+      });
+    }, 50);
+  });
+}
+
+// ============================================================
+// BAR CHART (income vs expenses monthly)
+// ============================================================
+function buildBarChart() {
+  const year = activeYear === 'all' ? '2025' : activeYear;
+  const rooms = activeRoom === 'all' ? ROOMS : [ROOMS.find(r => r.includes(activeRoom))];
+  const d = MONTHLY[year];
+  if (!d) return;
+
+  const incomes   = MONTHS.map((_,i) => rooms.reduce((s,r) => s + (d[r]?.income[i] || 0), 0));
+  const expenses  = MONTHS.map((_,i) => rooms.reduce((s,r) => s + (d[r]?.expenses[i] || 0), 0));
+  const net       = MONTHS.map((_,i) => incomes[i] - expenses[i]);
+
+  document.getElementById('bar-sub').textContent = `Y${year} · ${activeRoom === 'all' ? 'ทุกห้อง' : 'Room ' + activeRoom}`;
+
+  const ctx = document.getElementById('barChart').getContext('2d');
+  if (charts.barChart) charts.barChart.destroy();
+  charts.barChart = new Chart(ctx, {
+    data: {
+      labels: MONTHS,
+      datasets: [
+        { type: 'bar', label: 'Income', data: incomes, backgroundColor: 'rgba(59,130,246,0.7)', borderRadius: 5, order: 2 },
+        { type: 'bar', label: 'Expenses', data: expenses.map(v => -v), backgroundColor: 'rgba(244,63,94,0.7)', borderRadius: 5, order: 2 },
+        { type: 'line', label: 'Net', data: net, borderColor: '#10d87a', backgroundColor: 'rgba(16,216,122,0.08)', tension: 0.4, borderWidth: 2, pointRadius: 3, pointBackgroundColor: '#10d87a', fill: true, order: 1 },
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { labels: { color: '#94a3b8', font: { family: 'DM Mono', size: 11 }, boxWidth: 12 } },
+        tooltip: {
+          backgroundColor: '#151e2e', borderColor: '#1e2d42', borderWidth: 1,
+          titleColor: '#e2e8f0', bodyColor: '#94a3b8',
+          titleFont: { family: 'DM Mono', size: 11 },
+          bodyFont: { family: 'DM Mono', size: 11 },
+          callbacks: { label: ctx => ` ${ctx.dataset.label}: ${fmtFull(Math.abs(ctx.raw))}` }
+        }
+      },
+      scales: {
+        x: { ticks: { color: '#64748b', font: { family: 'DM Mono', size: 11 } }, grid: { color: 'rgba(255,255,255,0.03)' } },
+        y: { ticks: { color: '#64748b', font: { family: 'DM Mono', size: 11 }, callback: v => fmt(v) }, grid: { color: 'rgba(255,255,255,0.04)' } }
+      }
+    }
+  });
+}
+
+// ============================================================
+// YEAR COMPARISON CHART
+// ============================================================
+function buildYearChart() {
+  const rooms = activeRoom === 'all' ? ROOMS : [ROOMS.find(r => r.includes(activeRoom))];
+  const years = ['2023','2024','2025','2026'];
+
+  const incomes  = years.map(y => rooms.reduce((s,r) => s + (ANNUAL[r][y]?.income||0), 0));
+  const expenses = years.map(y => rooms.reduce((s,r) => s + (ANNUAL[r][y]?.expenses||0), 0));
+  const nets     = years.map((y,i) => incomes[i] - expenses[i]);
+
+  const ctx = document.getElementById('yearChart').getContext('2d');
+  if (charts.yearChart) charts.yearChart.destroy();
+  charts.yearChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: years,
+      datasets: [
+        { label: 'Income',   data: incomes,   backgroundColor: 'rgba(59,130,246,0.75)', borderRadius: 6 },
+        { label: 'Expenses', data: expenses.map(v=>-v), backgroundColor: 'rgba(244,63,94,0.65)', borderRadius: 6 },
+        { label: 'Net',      data: nets,      backgroundColor: nets.map(v => v >= 0 ? 'rgba(16,216,122,0.7)' : 'rgba(244,63,94,0.4)'), borderRadius: 6 },
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { labels: { color: '#94a3b8', font: { family: 'DM Mono', size: 11 }, boxWidth: 12 } },
+        tooltip: {
+          backgroundColor: '#151e2e', borderColor: '#1e2d42', borderWidth: 1,
+          titleColor: '#e2e8f0', bodyColor: '#94a3b8',
+          titleFont: { family: 'DM Mono', size: 11 }, bodyFont: { family: 'DM Mono', size: 11 },
+          callbacks: { label: ctx => ` ${ctx.dataset.label}: ${fmtFull(Math.abs(ctx.raw))}` }
+        }
+      },
+      scales: {
+        x: { ticks: { color: '#64748b', font: { family: 'DM Mono', size: 11 } }, grid: { color: 'rgba(255,255,255,0.03)' } },
+        y: { ticks: { color: '#64748b', font: { family: 'DM Mono', size: 11 }, callback: v => fmt(v) }, grid: { color: 'rgba(255,255,255,0.04)' } }
+      }
+    }
+  });
+}
+
+// ============================================================
+// PIE CHART
+// ============================================================
+function buildPieChart() {
+  const year = activeYear === 'all' ? '2025' : activeYear;
+  document.getElementById('pie-sub').textContent = `Y${year} · ${activeRoom === 'all' ? 'ทุกห้อง' : 'Room ' + activeRoom}`;
+  const brkdn = EXP_BREAKDOWN[year];
+  const vals  = EXP_CATS.map(c => brkdn[c] || 0).filter(v => v > 0);
+  const labs  = EXP_CATS.filter(c => (brkdn[c] || 0) > 0);
+  const colors = ['#3b82f6','#f43f5e','#10d87a','#f59e0b','#a78bfa','#38bdf8','#fb923c','#ec4899','#84cc16','#06b6d4'];
+
+  const ctx = document.getElementById('pieChart').getContext('2d');
+  if (charts.pieChart) charts.pieChart.destroy();
+  charts.pieChart = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: labs,
+      datasets: [{ data: vals, backgroundColor: colors.slice(0, vals.length), borderWidth: 2, borderColor: '#0a0f1a', hoverOffset: 8 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      cutout: '62%',
+      plugins: {
+        legend: { position: 'right', labels: { color: '#94a3b8', font: { family: 'DM Mono', size: 10 }, boxWidth: 10, padding: 10 } },
+        tooltip: {
+          backgroundColor: '#151e2e', borderColor: '#1e2d42', borderWidth: 1,
+          titleColor: '#e2e8f0', bodyColor: '#94a3b8',
+          titleFont: { family: 'DM Mono', size: 11 }, bodyFont: { family: 'DM Mono', size: 11 },
+          callbacks: { label: ctx => ` ${ctx.label}: ${fmtFull(ctx.raw)}` }
+        }
+      }
+    }
+  });
+}
+
+// ============================================================
+// EXPENSE BARS
+// ============================================================
+function buildExpBars() {
+  const year = activeYear === 'all' ? '2025' : activeYear;
+  document.getElementById('expbar-sub').textContent = `Y${year}`;
+  const brkdn = EXP_BREAKDOWN[year];
+  const items = EXP_CATS.map(c => ({ label: c, val: brkdn[c] || 0 })).filter(x => x.val > 0).sort((a,b) => b.val - a.val);
+  const max = items[0]?.val || 1;
+  const colors = ['#3b82f6','#a78bfa','#f59e0b','#10d87a','#f43f5e','#38bdf8','#fb923c','#ec4899','#84cc16','#06b6d4'];
+
+  const container = document.getElementById('exp-bars');
+  container.innerHTML = '';
+  items.forEach((item, i) => {
+    const pct = (item.val / max) * 100;
+    const row = document.createElement('div');
+    row.className = 'exp-bar-row';
+    row.innerHTML = `
+      <div class="exp-bar-label">${item.label}</div>
+      <div class="exp-bar-track">
+        <div class="exp-bar-fill" style="width:${pct}%;--fill-start:${colors[i % colors.length]};--fill-end:${colors[(i+3) % colors.length]};"></div>
+      </div>
+      <div class="exp-bar-val">${fmt(item.val)}</div>
+    `;
+    container.appendChild(row);
+  });
+}
+
+// ============================================================
+// ANNUAL TABLE
+// ============================================================
+function buildAnnualTable() {
+  const rooms = activeRoom === 'all' ? ROOMS : [ROOMS.find(r => r.includes(activeRoom))];
+  const years = ['2023','2024','2025','2026'];
+  const table = document.getElementById('yr-table');
+
+  let html = `<thead><tr>
+    <th>Room</th>
+    ${years.map(y => `<th colspan="3">${y}</th>`).join('')}
+  </tr>
+  <tr>
+    <th></th>
+    ${years.map(() => `<th>Income</th><th>Expenses</th><th>Net</th>`).join('')}
+  </tr></thead><tbody>`;
+
+  let totals = {income:{}, expenses:{}, net:{}};
+  years.forEach(y => { totals.income[y]=0; totals.expenses[y]=0; totals.net[y]=0; });
+
+  rooms.forEach(r => {
+    const col = ROOM_COLORS[r];
+    html += `<tr>
+      <td><span class="room-badge" style="background:${col.badge};color:${col.badgeText};">${r}</span></td>`;
+    years.forEach(y => {
+      const d = ANNUAL[r][y];
+      const inc = d?.income || 0; const exp = d?.expenses || 0; const net = inc - exp;
+      totals.income[y] += inc; totals.expenses[y] += exp; totals.net[y] += net;
+      html += `<td class="td-pos">${fmt(inc)}</td><td class="td-neg">${fmt(exp)}</td><td class="${net>=0?'td-pos':'td-neg'}">${fmt(net)}</td>`;
+    });
+    html += `</tr>`;
+  });
+
+  html += `<tr class="total-row"><td>TOTAL</td>`;
+  years.forEach(y => {
+    const n = totals.net[y];
+    html += `<td>${fmt(totals.income[y])}</td><td>${fmt(totals.expenses[y])}</td><td class="${n>=0?'td-pos':'td-neg'}">${fmt(n)}</td>`;
+  });
+  html += `</tr></tbody>`;
+  table.innerHTML = html;
+}
+
+// ============================================================
+// MONTHLY TABLE
+// ============================================================
+function buildMonthlyTable() {
+  const year = activeYear === 'all' ? '2025' : activeYear;
+  const rooms = activeRoom === 'all' ? ROOMS : [ROOMS.find(r => r.includes(activeRoom))];
+  document.getElementById('monthly-label').textContent = `รายละเอียดรายเดือน — Y${year}`;
+
+  const d = MONTHLY[year];
+  if (!d) return;
+
+  const table = document.getElementById('monthly-table');
+  let html = `<thead><tr>
+    <th>Month</th>
+    ${rooms.map(r => `<th colspan="3">Room ${r}</th>`).join('')}
+    <th colspan="3">TOTAL</th>
+  </tr><tr>
+    <th></th>
+    ${rooms.map(() => `<th>Income</th><th>Exp</th><th>Net</th>`).join('')}
+    <th>Income</th><th>Exp</th><th>Net</th>
+  </tr></thead><tbody>`;
+
+  let grandInc = 0, grandExp = 0;
+  MONTHS.forEach((m, i) => {
+    const totI = rooms.reduce((s,r) => s + (d[r]?.income[i]||0), 0);
+    const totE = rooms.reduce((s,r) => s + (d[r]?.expenses[i]||0), 0);
+    const totN = totI - totE;
+    grandInc += totI; grandExp += totE;
+    html += `<tr>
+      <td style="font-family:var(--mono);font-size:12px;">${m}</td>`;
+    rooms.forEach(r => {
+      const inc = d[r]?.income[i]||0, exp = d[r]?.expenses[i]||0, net = inc-exp;
+      html += `<td class="${inc?'td-pos':'td-neu'}">${inc ? fmt(inc) : '—'}</td>
+               <td class="${exp?'td-neg':'td-neu'}">${exp ? fmt(exp) : '—'}</td>
+               <td class="${net>0?'td-pos':net<0?'td-neg':'td-neu'}">${inc||exp ? fmt(net) : '—'}</td>`;
+    });
+    html += `<td class="${totI?'td-pos':'td-neu'}">${totI ? fmt(totI) : '—'}</td>
+             <td class="${totE?'td-neg':'td-neu'}">${totE ? fmt(totE) : '—'}</td>
+             <td class="${totN>0?'td-pos':totN<0?'td-neg':'td-neu'}">${totI||totE ? fmt(totN) : '—'}</td>`;
+    html += `</tr>`;
+  });
+
+  const grandNet = grandInc - grandExp;
+  html += `<tr class="total-row"><td>TOTAL</td>`;
+  rooms.forEach(r => {
+    const ri = d[r]?.income.reduce((a,b)=>a+b,0)||0;
+    const re = d[r]?.expenses.reduce((a,b)=>a+b,0)||0;
+    html += `<td class="td-pos">${fmt(ri)}</td><td class="td-neg">${fmt(re)}</td><td class="${ri-re>=0?'td-pos':'td-neg'}">${fmt(ri-re)}</td>`;
+  });
+  html += `<td class="td-pos">${fmt(grandInc)}</td><td class="td-neg">${fmt(grandExp)}</td><td class="${grandNet>=0?'td-pos':'td-neg'}">${fmt(grandNet)}</td></tr>`;
+  html += '</tbody>';
+  table.innerHTML = html;
+}
+
+// ============================================================
+// FILTER HANDLERS
+// ============================================================
+function setYear(y) {
+  activeYear = y;
+  document.querySelectorAll('#yr-btns .btn').forEach(b => b.classList.toggle('active', b.textContent === (y === 'all' ? 'ทุกปี' : y)));
+  refresh();
+}
+function setRoom(r) {
+  activeRoom = r;
+  document.querySelectorAll('#room-btns .btn').forEach(b => {
+    const lab = b.textContent;
+    const match = (r === 'all' && lab === 'ทั้งหมด') || (r !== 'all' && lab.includes(r));
+    b.classList.toggle('active', match);
+  });
+  refresh();
+}
+
+function refresh() {
+  buildKPI();
+  buildSparklines();
+  buildBarChart();
+  buildYearChart();
+  buildPieChart();
+  buildExpBars();
+  buildAnnualTable();
+  buildMonthlyTable();
+}
+
+// INIT
+Chart.defaults.color = '#64748b';
+Chart.defaults.font.family = 'DM Mono';
+refresh();
+</script>
+</body>
+</html>
