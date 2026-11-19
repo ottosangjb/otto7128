@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>เบญจวรรณ 086-358-9448 คำนวณค่างวดรถ</title>
+
+<style>
+*{
+    box-sizing:border-box;
+    font-family:'Segoe UI',Tahoma,sans-serif;
+}
+
+body{
+    margin:0;
+    padding:20px;
+    background:#f3f6fb;
+}
+
+.container{
+    max-width:500px;
+    margin:auto;
+    background:#fff;
+    border-radius:16px;
+    padding:24px;
+    box-shadow:0 4px 12px rgba(0,0,0,0.08);
+}
+
+h2{
+    text-align:center;
+    color:#0078d4;
+    margin-bottom:20px;
+}
+
+.form-group{
+    margin-bottom:15px;
+}
+
+label{
+    display:block;
+    margin-bottom:6px;
+    font-weight:600;
+}
+
+input,
+select{
+    width:100%;
+    padding:12px;
+    border:1px solid #d0d7de;
+    border-radius:8px;
+    font-size:16px;
+}
+
+.button-group{
+    display:flex;
+    gap:10px;
+    margin-top:15px;
+}
+
+button{
+    flex:1;
+    padding:14px;
+    border:none;
+    border-radius:8px;
+    font-size:16px;
+    cursor:pointer;
+}
+
+.btn-primary{
+    background:#0078d4;
+    color:white;
+}
+
+.btn-primary:hover{
+    background:#005ea6;
+}
+
+.btn-secondary{
+    background:#6c757d;
+    color:white;
+}
+
+.result{
+    display:none;
+    margin-top:20px;
+    background:#f8f9fa;
+    padding:15px;
+    border-radius:10px;
+}
+
+.result-item{
+    padding:8px 0;
+    border-bottom:1px solid #e5e5e5;
+}
+
+.result-item:last-child{
+    border-bottom:none;
+}
+
+.highlight{
+    text-align:center;
+    margin-top:15px;
+    padding:15px;
+    background:#fff4e5;
+    border-radius:10px;
+}
+
+.highlight .amount{
+    font-size:30px;
+    font-weight:bold;
+    color:#d83b01;
+}
+
+small{
+    color:#666;
+}
+</style>
+
+</head>
+<body>
+
+<div class="container">
+
+    <h2>🚗 เบญจวรรณ 086-358-9448 คำนวณค่างวดรถ</h2>
+
+    <div class="form-group">
+        <label>ราคารถ (บาท)</label>
+        <input type="number" id="carPrice" placeholder="เช่น 650000">
+    </div>
+
+    <div class="form-group">
+        <label>ประเภทเงินดาวน์</label>
+        <select id="downType">
+            <option value="percent">เปอร์เซ็นต์ (%)</option>
+            <option value="amount">จำนวนเงิน (บาท)</option>
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label>เงินดาวน์</label>
+        <input type="number" id="downValue" placeholder="เช่น 20 หรือ 150000">
+    </div>
+
+    <div class="form-group">
+        <label>ดอกเบี้ยต่อปี (%)</label>
+        <input type="number" id="interestRate" step="0.01" value="2.79">
+    </div>
+
+    <div class="form-group">
+        <label>ระยะเวลาผ่อน (ปี)</label>
+        <select id="years">
+            <option value="1">1 ปี</option>
+            <option value="2">2 ปี</option>
+            <option value="3">3 ปี</option>
+            <option value="4">4 ปี</option>
+            <option value="5" selected>5 ปี</option>
+            <option value="6">6 ปี</option>
+            <option value="7">7 ปี</option>
+        </select>
+    </div>
+
+    <div class="button-group">
+        <button class="btn-primary" onclick="calculateLoan()">
+            คำนวณ
+        </button>
+
+        <button class="btn-secondary" onclick="resetForm()">
+            ล้างข้อมูล
+        </button>
+    </div>
+
+    <div class="result" id="result">
+
+        <div class="result-item" id="showDown"></div>
+
+        <div class="result-item" id="showFinance"></div>
+
+        <div class="result-item" id="showInterest"></div>
+
+        <div class="result-item" id="showTotal"></div>
+
+        <div class="result-item" id="showMonths"></div>
+
+        <div class="highlight">
+            <div>ค่างวดต่อเดือน</div>
+            <div class="amount" id="showMonthly"></div>
+        </div>
+
+    </div>
+
+</div>
+
+<script>
+
+function formatNumber(num){
+    return Number(num).toLocaleString('th-TH',{
+        minimumFractionDigits:2,
+        maximumFractionDigits:2
+    });
+}
+
+function calculateLoan(){
+
+    let carPrice =
+        parseFloat(document.getElementById("carPrice").value);
+
+    let downType =
+        document.getElementById("downType").value;
+
+    let downValue =
+        parseFloat(document.getElementById("downValue").value);
+
+    let interestRate =
+        parseFloat(document.getElementById("interestRate").value);
+
+    let years =
+        parseFloat(document.getElementById("years").value);
+
+    if(!carPrice || carPrice <= 0){
+        alert("กรุณากรอกราคารถ");
+        return;
+    }
+
+    if(isNaN(downValue)){
+        alert("กรุณากรอกเงินดาวน์");
+        return;
+    }
+
+    let downAmount = 0;
+    let downPercent = 0;
+
+    if(downType === "percent"){
+
+        downPercent = downValue;
+
+        if(downPercent > 100){
+            alert("เปอร์เซ็นต์ต้องไม่เกิน 100%");
+            return;
+        }
+
+        downAmount =
+            carPrice * downPercent / 100;
+    }
+    else{
+
+        downAmount = downValue;
+
+        if(downAmount > carPrice){
+            alert("เงินดาวน์มากกว่าราคารถไม่ได้");
+            return;
+        }
+
+        downPercent =
+            (downAmount / carPrice) * 100;
+    }
+
+    let financeAmount =
+        carPrice - downAmount;
+
+    let interestTotal =
+        financeAmount *
+        (interestRate / 100) *
+        years;
+
+    let totalPay =
+        financeAmount +
+        interestTotal;
+
+    let months =
+        years * 12;
+
+    let monthlyPayment =
+        totalPay / months;
+
+    document.getElementById("showDown").innerHTML =
+        "💰 เงินดาวน์ : " +
+        formatNumber(downAmount) +
+        " บาท (" +
+        formatNumber(downPercent) +
+        "%)";
+
+    document.getElementById("showFinance").innerHTML =
+        "🏦 ยอดจัดไฟแนนซ์ : " +
+        formatNumber(financeAmount) +
+        " บาท";
+
+    document.getElementById("showInterest").innerHTML =
+        "📈 ดอกเบี้ยรวม : " +
+        formatNumber(interestTotal) +
+        " บาท";
+
+    document.getElementById("showTotal").innerHTML =
+        "📋 ยอดผ่อนรวม : " +
+        formatNumber(totalPay) +
+        " บาท";
+
+    document.getElementById("showMonths").innerHTML =
+        "🗓️ จำนวนงวด : " +
+        months +
+        " งวด";
+
+    document.getElementById("showMonthly").innerHTML =
+        formatNumber(monthlyPayment) +
+        " บาท";
+
+    document.getElementById("result").style.display="block";
+}
+
+function resetForm(){
+
+    document.getElementById("carPrice").value = "";
+    document.getElementById("downValue").value = "";
+    document.getElementById("interestRate").value = "2.79";
+    document.getElementById("years").value = "5";
+    document.getElementById("downType").value = "percent";
+
+    document.getElementById("result").style.display="none";
+}
+
+</script>
+
+</body>
+</html>
